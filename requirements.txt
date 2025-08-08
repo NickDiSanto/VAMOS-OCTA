@@ -1,0 +1,10 @@
+torch>=1.12
+torchvision
+numpy
+matplotlib
+scipy
+tifffile
+lpips
+scikit-image
+opencv-python
+tqdm
