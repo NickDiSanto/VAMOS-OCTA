@@ -7,7 +7,7 @@ from utils.logging import log
 def train_epoch(model, dataloader, optimizer, criterion, device):
     running_loss = 0.0
     count = 0
-    log_terms = {"weighted_mse": 0.0, "mip_loss_axial": 0.0, "mip_loss_coronal": 0.0, "aip_loss_axial": 0.0, "aip_loss_coronal": 0.0}  # Initialize terms for logging
+    log_terms = {"weighted_mse": 0.0, "mip_loss_axial": 0.0, "mip_loss_lateral": 0.0, "aip_loss_axial": 0.0, "aip_loss_lateral": 0.0}  # Initialize terms for logging
 
     model.train()
 

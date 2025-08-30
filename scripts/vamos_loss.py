@@ -8,9 +8,9 @@ class VAMOS_Loss(nn.Module):
         self,
         lambda_weighted_mse=1.0,
         lambda_mip_axial=1.0,
-        lambda_mip_coronal=1.0,
+        lambda_mip_lateral=1.0,
         lambda_aip_axial=1.0,
-        lambda_aip_coronal=1.0,
+        lambda_aip_lateral=1.0,
         wl_alpha=100.0,
         wl_gamma=1/3,
         disable_wl_weighting=False
@@ -20,9 +20,9 @@ class VAMOS_Loss(nn.Module):
 
         lambda_weighted_mse: Vessel-aware weighted MSE
         lambda_mip_axial: Maximum Intensity Projection (MIP) loss multiplier for axial axis
-        lambda_mip_coronal: Maximum Intensity Projection (MIP) loss multiplier for coronal axis
+        lambda_mip_lateral: Maximum Intensity Projection (MIP) loss multiplier for lateral axis
         lambda_aip_axial: Average Intensity Projection (AIP) loss for axial axis
-        lambda_aip_coronal: Average Intensity Projection (AIP) loss for coronal axis
+        lambda_aip_lateral: Average Intensity Projection (AIP) loss for lateral axis
         disable_wl_weighting: If True, disables vessel-weighting for the MSE term
 
         wl_alpha, wl_gamma: weight map shaping parameters for vessel-weighted term
@@ -30,9 +30,9 @@ class VAMOS_Loss(nn.Module):
         super().__init__()
         self.lambda_weighted_mse = lambda_weighted_mse
         self.lambda_mip_axial = lambda_mip_axial
-        self.lambda_mip_coronal = lambda_mip_coronal
+        self.lambda_mip_lateral = lambda_mip_lateral
         self.lambda_aip_axial = lambda_aip_axial
-        self.lambda_aip_coronal = lambda_aip_coronal
+        self.lambda_aip_lateral = lambda_aip_lateral
 
         self.wl_alpha = wl_alpha
         self.wl_gamma = wl_gamma
@@ -66,10 +66,10 @@ class VAMOS_Loss(nn.Module):
         mip_axial_target = target.max(dim=2).values
         loss_mip_axial = F.l1_loss(mip_axial_pred, mip_axial_target)
 
-        # Coronal: MIP over width (y→xz) → (B, 1, H)
-        mip_coronal_pred = pred.max(dim=3).values  # (B, 1, H)
-        mip_coronal_target = target.max(dim=3).values
-        loss_mip_coronal = F.l1_loss(mip_coronal_pred, mip_coronal_target)
+        # Lateral: MIP over width (y→xz) → (B, 1, H)
+        mip_lateral_pred = pred.max(dim=3).values  # (B, 1, H)
+        mip_lateral_target = target.max(dim=3).values
+        loss_mip_lateral = F.l1_loss(mip_lateral_pred, mip_lateral_target)
 
         # === AIP Losses ===
         # Axial AIP: mean over height (B, 1, W)
@@ -77,24 +77,24 @@ class VAMOS_Loss(nn.Module):
         aip_axial_target = target.mean(dim=2)
         loss_aip_axial = F.l1_loss(aip_axial_pred, aip_axial_target)
 
-        # Coronal AIP: mean over width (B, 1, H)
-        aip_coronal_pred = pred.mean(dim=3)
-        aip_coronal_target = target.mean(dim=3)
-        loss_aip_coronal = F.l1_loss(aip_coronal_pred, aip_coronal_target)
+        # Lateral AIP: mean over width (B, 1, H)
+        aip_lateral_pred = pred.mean(dim=3)
+        aip_lateral_target = target.mean(dim=3)
+        loss_aip_lateral = F.l1_loss(aip_lateral_pred, aip_lateral_target)
 
 
         total_loss = (
             self.lambda_weighted_mse * mse_weighted +
             self.lambda_mip_axial * loss_mip_axial +
-            self.lambda_mip_coronal * loss_mip_coronal +
+            self.lambda_mip_lateral * loss_mip_lateral +
             self.lambda_aip_axial * loss_aip_axial +
-            self.lambda_aip_coronal * loss_aip_coronal
+            self.lambda_aip_lateral * loss_aip_lateral
         )
 
         return total_loss, {
             "weighted_mse": mse_weighted.item(),
             "mip_loss_axial": loss_mip_axial.item(),
-            "mip_loss_coronal": loss_mip_coronal.item(),
+            "mip_loss_lateral": loss_mip_lateral.item(),
             "aip_loss_axial": loss_aip_axial.item(),
-            "aip_loss_coronal": loss_aip_coronal.item()
+            "aip_loss_lateral": loss_aip_lateral.item()
         }

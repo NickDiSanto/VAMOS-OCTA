@@ -130,13 +130,13 @@ def main(args, device):
                 enable_3d_input=args.enable_3d_input
             ).to(device)
 
-            # Vessel-Weighted MSE + Axial MIP/AIP Loss + Coronal MIP/AIP Loss
+            # Vessel-Weighted MSE + Axial MIP/AIP Loss + Lateral MIP/AIP Loss
             criterion = VAMOS_Loss(
                 lambda_weighted_mse=1.0,
                 lambda_mip_axial=3.0,
-                lambda_mip_coronal=9.0,
+                lambda_mip_lateral=9.0,
                 lambda_aip_axial=3.0,
-                lambda_aip_coronal=3.0,
+                lambda_aip_lateral=3.0,
                 wl_alpha=args.wl_alpha,
                 wl_gamma=args.wl_gamma,
                 disable_wl_weighting=args.disable_wl_weighting
