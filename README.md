@@ -6,7 +6,7 @@ Handheld OCT Angiography (OCTA) enables retinal imaging in uncooperative patient
 
 ### Key Features:
 - **2.5D U-Net** inpainting model conditioned on surrounding slices
-- **VAMOS loss** combining vessel-weighted MSE with orthogonal projection supervision (axial + coronal)
+- **VAMOS loss** combining vessel-weighted MSE with orthogonal projection supervision (axial + lateral)
 - **Dynamic synthetic corruption** pipeline simulates realistic B-scan dropouts during training
 - Evaluation across multiple metrics targeting both pixel-level accuracy and perceptual quality
 
