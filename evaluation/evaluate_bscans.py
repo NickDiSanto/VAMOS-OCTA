@@ -1,10 +1,7 @@
 import torch
 import numpy as np
 from skimage.metrics import structural_similarity as skimage_ssim
-from scipy.ndimage import uniform_filter
 import lpips
-import cv2
-from scipy.ndimage import sobel
 
 from evaluation.metrics_utils import compute_local_ncc, gradient_magnitude, laplacian_blur_score, edge_strength, to_lpips_tensor
 from utils.logging import log
@@ -25,7 +22,6 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
     lpips_vals = []
     edge_pres_ratio_vals = []
     laplacian_blur_scores = []
-    # laplacian_blur_scores_gt = []
 
     lpips_model = lpips.LPIPS(net='alex').cuda() if torch.cuda.is_available() else lpips.LPIPS(net='alex')
 
@@ -47,7 +43,6 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
         l1_vals.append(np.mean(np.abs(p - g)))
         mie_vals.append(np.abs(p.mean() - g.mean()))
 
-
         # PSNR
         mse = np.mean((p - g) ** 2)
         if mse == 0:
@@ -56,7 +51,6 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
             psnr = 10 * np.log10(1.0 / mse)
         psnr_vals.append(psnr)
 
-
         # SSIM at multiple windows
         for w in ssim_vals.keys():
             try:
@@ -64,7 +58,6 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
             except Exception:
                 ssim_val = float('nan')
             ssim_vals[w].append(ssim_val)
-
 
         # Global NCC (slice-wide Pearson)
         try:
@@ -79,7 +72,6 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
             ncc_val = float('nan')
         global_ncc_vals.append(ncc_val)
 
-
         # Windowed NCC
         for w in windowed_ncc_vals.keys():
             try:
@@ -92,12 +84,10 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
             except Exception:
                 windowed_ncc_vals[w].append(float('nan'))
 
-
         # Gradient L1
         g_grad = gradient_magnitude(g)
         p_grad = gradient_magnitude(p)
         gradient_l1_vals.append(np.mean(np.abs(g_grad - p_grad)))
-
 
         # LPIPS
         try:
@@ -120,23 +110,16 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
 
         lpips_vals.append(lpips_val)
 
-
         # Edge Preservation Ratio
         gt_edge = edge_strength(g)
         pred_edge = edge_strength(p)
         edge_ratio = pred_edge / (gt_edge + 1e-8)
         edge_pres_ratio_vals.append(edge_ratio)
 
-
-        # Laplacian blur score (sharpness)
+        # Laplacian Blur Score (sharpness)
         blur_score = laplacian_blur_score(p)
         blur_score_gt = laplacian_blur_score(g)
         laplacian_blur_scores.append(abs(blur_score - blur_score_gt))
-
-        # # Laplacian blur score for GT
-        # blur_score_gt = laplacian_blur_score(g)
-        # laplacian_blur_scores_gt.append(blur_score_gt)
-
 
     # # 3D NCC
     # try:
@@ -152,7 +135,7 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
     # except Exception:
     #     ncc3d_mean = None
 
-
+    log("\B-SCAN METRICS:")
     log(f" - L1 Error:                {float(np.mean(l1_vals)):.4f}")
     log(f" - MeanIntensityError:      {float(np.mean(mie_vals)):.4f}")
     log(f" - PSNR:                    {np.mean(psnr_vals):.4f}")

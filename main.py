@@ -9,7 +9,7 @@ import random
 from data.dataset import load_volume_triplets, get_kfold_splits, OCTAInpaintingDataset
 from models.unet2p5d import UNet2p5D
 from scripts.train import train
-from scripts.inpaint_test_volume import evaluate_model_on_test, inpaint_volume_with_model
+from scripts.inpaint_test_volume import inpaint_volume_with_model
 from scripts.vamos_loss import VAMOS_Loss
 from evaluation.evaluate_bscans import evaluate_bscans
 from evaluation.evaluate_mip import evaluate_projection
@@ -39,6 +39,11 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size for training')
     parser.add_argument('--stack_size', type=int, default=9, help='Number of slices to stack for 2.5D input')
     parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate for AdamW optimizer')
+    parser.add_argument('--weighted_mse', type=float, default=1.0, help='Weight for MSE loss')
+    parser.add_argument('--axial_mip', type=float, default=3.0, help='Weight for axial MIP loss')
+    parser.add_argument('--lateral_mip', type=float, default=3.0, help='Weight for lateral MIP loss')
+    parser.add_argument('--axial_aip', type=float, default=3.0, help='Weight for axial AIP loss')
+    parser.add_argument('--lateral_aip', type=float, default=3.0, help='Weight for lateral AIP loss')
     parser.add_argument('--wl_alpha', type=float, default=100.0, help='Weight for WL loss')
     parser.add_argument('--wl_gamma', type=float, default=1/3, help='Gamma for WL loss')
     parser.add_argument('--disable_wl_weighting', action='store_true', help='Disable weighting of WL loss')
@@ -86,9 +91,9 @@ def main(args, device):
             log(f"\n========== Fold {fold_idx + 1} ==========")
             log("Training volumes:")
             for v in train_vols: log(f" - {os.path.basename(v[0])}")
-            log("Validation volume:")
+            log("Validation volume(s):")
             for v in val_vols: log(f" - {os.path.basename(v[0])}")
-            log("Test volume:")
+            log("Test volume(s):")
             for v in test_vols: log(f" - {os.path.basename(v[0])}")
 
             log(f"Using {len(train_vols)} volumes for training, {len(val_vols)} for validation, {len(test_vols)} for testing")
@@ -107,18 +112,11 @@ def main(args, device):
                 static_corruptions=True,
             )
 
-            test_dataset = OCTAInpaintingDataset(
-                test_vols,
-                stack_size=args.stack_size,
-                static_corruptions=True
-            )
-
             g = torch.Generator()
             g.manual_seed(args.seed)
 
             train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, generator=g, num_workers=0)
             val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
-            test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
             # Initialize Model
             log("Initializing model...")
@@ -132,11 +130,11 @@ def main(args, device):
 
             # Vessel-Weighted MSE + Axial MIP/AIP Loss + Lateral MIP/AIP Loss
             criterion = VAMOS_Loss(
-                lambda_weighted_mse=1.0,
-                lambda_mip_axial=3.0,
-                lambda_mip_lateral=9.0,
-                lambda_aip_axial=3.0,
-                lambda_aip_lateral=3.0,
+                lambda_weighted_mse=args.weighted_mse,
+                lambda_mip_axial=args.axial_mip,
+                lambda_mip_lateral=args.lateral_mip,
+                lambda_aip_axial=args.axial_aip,
+                lambda_aip_lateral=args.lateral_aip,
                 wl_alpha=args.wl_alpha,
                 wl_gamma=args.wl_gamma,
                 disable_wl_weighting=args.disable_wl_weighting
@@ -152,8 +150,6 @@ def main(args, device):
             # Evaluate on Held-Out Test Volume
             log("Evaluating on held-out test volume...")
             model.load_state_dict(torch.load(best_model_path))
-            test_loss = evaluate_model_on_test(model, test_loader, criterion, device)
-            log(f"Final test loss: {test_loss:.4f}")
             
             for test_idx, (test_corrupted_path, test_gt_path, test_mask_path) in enumerate(test_vols):
                 log(f"\nEvaluating test volume {test_idx + 1}/{len(test_vols)}: {os.path.basename(test_corrupted_path)}")
@@ -171,13 +167,12 @@ def main(args, device):
                 elif mask.ndim != 1:
                     raise ValueError("Unsupported mask dimensionality")
 
-                # -- Single-pass inpainting
-                log("Running singe-pass inpainting...")
+                # Single-pass inpainting
+                log("Running single-pass inpainting...")
                 inpainted = inpaint_volume_with_model(
                     model, gt_volume, corrupted_volume, args.detect_bright_outliers, device, args.stack_size, args.debug, args
                 )
                 inpainted = inpainted[0] if isinstance(inpainted, tuple) else inpainted
-
 
                 # Save output
                 base_name = os.path.basename(test_corrupted_path).replace("_corrupted.tif", "")
@@ -187,7 +182,7 @@ def main(args, device):
                 )
 
                 os.makedirs(args.output_dir, exist_ok=True)
-                tiff.imwrite(output_path, inpainted.astype(np.uint16))
+                tiff.imwrite(output_path, inpainted.astype(np.float32))
                 log(f"Saved inpainted volume to: {output_path}")
 
                 # Normalize volumes for evaluation

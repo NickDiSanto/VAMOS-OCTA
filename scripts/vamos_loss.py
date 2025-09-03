@@ -59,19 +59,18 @@ class VAMOS_Loss(nn.Module):
 
         mse_weighted = ((pred - target) ** 2 * weight_map).mean()
 
-        # === Multi-Axis Orthogonal Projection Supervision ===
+        # --- Multi-Axis Orthogonal Projection Supervision
 
-        # Axial: MIP over height (z→xy) → (B, 1, W)
+        # Axial MIP: max over height (z→xy) → (B, 1, W)
         mip_axial_pred = pred.max(dim=2).values  # (B, 1, W)
         mip_axial_target = target.max(dim=2).values
         loss_mip_axial = F.l1_loss(mip_axial_pred, mip_axial_target)
 
-        # Lateral: MIP over width (y→xz) → (B, 1, H)
+        # Lateral MIP: max over width (y→xz) → (B, 1, H)
         mip_lateral_pred = pred.max(dim=3).values  # (B, 1, H)
         mip_lateral_target = target.max(dim=3).values
         loss_mip_lateral = F.l1_loss(mip_lateral_pred, mip_lateral_target)
 
-        # === AIP Losses ===
         # Axial AIP: mean over height (B, 1, W)
         aip_axial_pred = pred.mean(dim=2)
         aip_axial_target = target.mean(dim=2)

@@ -4,64 +4,6 @@ from torch.optim import AdamW, lr_scheduler
 from utils.logging import log
 
 
-def train_epoch(model, dataloader, optimizer, criterion, device):
-    running_loss = 0.0
-    count = 0
-    log_terms = {"weighted_mse": 0.0, "mip_loss_axial": 0.0, "mip_loss_lateral": 0.0, "aip_loss_axial": 0.0, "aip_loss_lateral": 0.0}  # Initialize terms for logging
-
-    model.train()
-
-    for batch_idx, (X, y, valid_mask) in enumerate(dataloader):
-        X, y, valid_mask = X.to(device), y.to(device), valid_mask.to(device)
-
-        X = X.contiguous().float()
-        y = y.contiguous().float()
-
-        output = model(X)
-
-        if torch.isnan(output).any() or torch.isinf(output).any():
-            log(f"[ERROR] Model output contains NaNs or Infs at batch {batch_idx}")
-
-        loss, terms = criterion(output, y)
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        running_loss += loss.item() * X.size(0)
-
-        for k in log_terms:
-            log_terms[k] += terms.get(k, 0.0) * X.size(0)
-        count += X.size(0)
-
-    avg_terms = {k: round(v / count, 6) for k, v in log_terms.items()}
-
-    return running_loss / count, avg_terms
-
-
-def validate_epoch(model, dataloader, criterion, device):
-    model.eval()
-    running_loss = 0.0
-
-    with torch.no_grad():
-        for batch_idx, (X, y, valid_mask) in enumerate(dataloader):
-            X, y, valid_mask = X.to(device), y.to(device), valid_mask.to(device)
-
-            X = X.contiguous().float()
-            y = y.contiguous().float()
-
-            output = model(X)
-
-            if torch.isnan(output).any() or torch.isinf(output).any():
-                log(f"[ERROR] Model output contains NaNs or Infs at batch {batch_idx}")
-
-            loss, _ = criterion(output, y)
-
-            running_loss += loss.item() * X.size(0)
-
-    return running_loss / len(dataloader.dataset)
-
-
 def train(model, train_loader, val_loader, criterion, best_model_path, device, args):
     optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=1e-5)
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=3, factor=0.5)
@@ -93,6 +35,65 @@ def train(model, train_loader, val_loader, criterion, best_model_path, device, a
             break
 
     log(f"Training complete. Best validation loss: {best_val_loss:.6f} at epoch {best_epoch}")
+    log(f"Best model saved to: {best_model_path}")
+    
+
+def train_epoch(model, dataloader, optimizer, criterion, device):
+    running_loss = 0.0
+    count = 0
+    log_terms = {"weighted_mse": 0.0, "mip_loss_axial": 0.0, "mip_loss_lateral": 0.0, "aip_loss_axial": 0.0, "aip_loss_lateral": 0.0}  # Initialize terms for logging
+
+    model.train()
+
+    for batch_idx, (X, y, _) in enumerate(dataloader):
+        X, y = X.to(device), y.to(device)
+
+        X = X.contiguous().float()
+        y = y.contiguous().float()
+
+        output = model(X)
+
+        if torch.isnan(output).any() or torch.isinf(output).any():
+            log(f"[ERROR] Model output contains NaNs or Infs at batch {batch_idx}")
+
+        loss, terms = criterion(output, y)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        running_loss += loss.item() * X.size(0)
+
+        for k in log_terms:
+            log_terms[k] += terms.get(k, 0.0) * X.size(0)
+        count += X.size(0)
+
+    avg_terms = {k: round(v / count, 6) for k, v in log_terms.items()}
+
+    return running_loss / count, avg_terms
+
+
+def validate_epoch(model, dataloader, criterion, device):
+    model.eval()
+    running_loss = 0.0
+
+    with torch.no_grad():
+        for batch_idx, (X, y, _) in enumerate(dataloader):
+            X, y = X.to(device), y.to(device)
+
+            X = X.contiguous().float()
+            y = y.contiguous().float()
+
+            output = model(X)
+
+            if torch.isnan(output).any() or torch.isinf(output).any():
+                log(f"[ERROR] Model output contains NaNs or Infs at batch {batch_idx}")
+
+            loss, _ = criterion(output, y)
+
+            running_loss += loss.item() * X.size(0)
+
+    return running_loss / len(dataloader.dataset)
 
 
 class EarlyStopping:
