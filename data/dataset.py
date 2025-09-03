@@ -47,17 +47,6 @@ def get_kfold_splits(triplets, k=5, seed=42):
     return folds
 
 
-def sample_block_size(self, min_size, max_size, prob=0.4):
-    """
-    Sample block size from a geometric distribution with rejection sampling
-    to avoid clumping at max_size. This matches your offline static corruption behavior.
-    """
-    while True:
-        size = min_size + self.rng_np.geometric(prob) - 1
-        if size <= max_size:
-            return size
-
-
 class OCTAInpaintingDataset(Dataset):
     # def __init__(self, volume_triples: list, stack_size=5, static_corruptions=False, stride=1):
     def __init__(self, volume_triples, stack_size=5, static_corruptions=False, stride=1, seed=42):
@@ -122,7 +111,7 @@ class OCTAInpaintingDataset(Dataset):
 
         else:
             # --- Online corruption mode: build indices for on-the-fly random dropouts ---
-            self.clean_volumes = []   # list of clean volumes (np.uint16 arrays)
+            self.clean_volumes = []   # list of clean volumes (np.float32 arrays)
             self.padded_volumes = []  # list of padded clean volumes for easy indexing
             self.indices = []         # list of (volume_index, center_slice_idx) pairs
 
@@ -147,10 +136,22 @@ class OCTAInpaintingDataset(Dataset):
             return len(self.data)
         else:
             return len(self.indices)
+        
+
+    def sample_block_size(self, min_size, max_size, prob=0.4):
+        """
+        Sample block size from a geometric distribution with rejection sampling
+        to avoid clumping at max_size. This matches the offline static corruption behavior.
+        """
+        while True:
+            size = min_size + self.rng_np.geometric(prob) - 1
+            if size <= max_size:
+                return size
+
 
     def __getitem__(self, idx):
         if self.static_corruptions:
-            # --- Static mode: return precomputed (stack, target) pair ---
+            # --- Static corruption mode: return precomputed (stack, target) pair ---
             stack, target = self.data[idx]
             stack = torch.from_numpy(stack).float()
             target = torch.from_numpy(target).float().unsqueeze(0)

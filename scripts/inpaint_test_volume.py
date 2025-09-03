@@ -1,31 +1,7 @@
 import torch
 import numpy as np
-from tqdm import tqdm
 
 from utils.logging import log
-
-
-def evaluate_model_on_test(model, dataloader, criterion, device):
-    model.eval()
-    running_loss = 0.0
-
-    with torch.no_grad():
-        for batch_idx, (X, y, valid_mask) in enumerate(tqdm(dataloader, desc="Testing")):
-            X, y, valid_mask = X.to(device), y.to(device), valid_mask.to(device)
-
-            X = X.contiguous().float()
-            y = y.contiguous().float()
-
-            output = model(X)
-
-            if torch.isnan(output).any() or torch.isinf(output).any():
-                log(f"[ERROR] Model output contains NaNs or Infs at batch {batch_idx}")
-
-            loss, _ = criterion(output, y)
-
-            running_loss += loss.item() * X.size(0)
-
-    return running_loss / len(dataloader.dataset)
 
 
 def detect_inpainting_slices(volume, threshold=0.25, margin=0.0):
@@ -33,7 +9,7 @@ def detect_inpainting_slices(volume, threshold=0.25, margin=0.0):
     Detect corrupted slices in a volume based on brightness deviation from median.
     
     Args:
-        volume (np.ndarray): (D, H, W) uint16 volume.
+        volume (np.ndarray): (D, H, W) float32 volume.
         threshold (float): Relative deviation from median to mark corruption.
         margin (float): Min contrast margin to avoid flat regions.
 
@@ -51,16 +27,15 @@ def detect_inpainting_slices(volume, threshold=0.25, margin=0.0):
 
 def inpaint_volume_with_model(model, gt_volume, corrupted_volume, detect_bright_outliers=False, device='cuda', stack_size=9, debug=False, args=None):
     """
-    Apply 2.5D model to slices automatically detected as corrupted.
-    Slices deviating from the median brightness are selected and zeroed out before being passed to the model.
+    Apply model to corrupted slices, which are zeroed out before being passed to the model.
     
     Args:
-        model: trained UNet2p5D model
-        corrupted_volume: (D, H, W) array (uint16)
+        model: trained model
+        corrupted_volume: (D, H, W) array (float32)
         stack_size: number of slices in input stack
 
     Returns:
-        np.ndarray: inpainted volume (D, H, W), dtype uint16
+        np.ndarray: inpainted volume (D, H, W), dtype float32
     """
     model.eval()
     pad = stack_size // 2
@@ -99,4 +74,4 @@ def inpaint_volume_with_model(model, gt_volume, corrupted_volume, detect_bright_
 
             inpainted[idx] = np.clip(pred, 0, corrupted_volume.max()).astype(np.uint16)
 
-    return inpainted.astype(np.uint16)
+    return inpainted.astype(np.float32)  # Return as float32 for consistency with other processing steps

@@ -11,16 +11,16 @@ def visualize_ncc_slice_stacked(gt_volume, pred_volume, slice_idx, window_sizes=
     Visualize GT, prediction, and NCC heatmaps for one slice
     with multiple window_sizes stacked vertically.
     """
-    gt = (gt_volume[slice_idx].astype(np.float32)) / (gt.max() + 1e-5)
-    pred = (pred_volume[slice_idx].astype(np.float32)) / (gt.max() + 1e-5)
+    gt = gt_volume[slice_idx].astype(np.float32)
+    pred = pred_volume[slice_idx].astype(np.float32)
 
     num_windows = len(window_sizes)
     nrows = 2 + num_windows # GT, Pred, then num_windows for NCC maps
     
-    # Use the same figure size as your final SSIM function
+    # Use the same figure size as the final SSIM function
     fig, axes = plt.subplots(nrows, 1, figsize=(5, 2.5 * nrows))
     
-    # Use the same hspace, top, and bottom as your final SSIM function
+    # Use the same hspace, top, and bottom as the final SSIM function
     plt.subplots_adjust(hspace=0.2, top=0.95, bottom=0.05)
 
     # Row 0: Ground-Truth Slice
@@ -39,7 +39,7 @@ def visualize_ncc_slice_stacked(gt_volume, pred_volume, slice_idx, window_sizes=
     for i, window_size in enumerate(window_sizes):
         ax_ncc = axes[2 + i]
         try:
-            # Use your provided compute_local_ncc function
+            # Use the provided compute_local_ncc function
             ncc_map = np.clip(compute_local_ncc(gt, pred, window_size=window_size), -1, 1)
         except Exception as e:
             log(f"NCC computation for win_size={window_size} failed: {e}")
@@ -63,8 +63,8 @@ def visualize_ssim_slice_stacked(gt_volume, pred_volume, slice_idx, window_sizes
     Visualize GT, prediction, and SSIM heatmaps for one slice
     with multiple window_sizes stacked vertically.
     """
-    gt = (gt_volume[slice_idx].astype(np.float32)) / (gt.max() + 1e-5)
-    pred = (pred_volume[slice_idx].astype(np.float32)) / (gt.max() + 1e-5)
+    gt = gt_volume[slice_idx].astype(np.float32)
+    pred = pred_volume[slice_idx].astype(np.float32)
 
     num_windows = len(window_sizes)
     nrows = 2 + num_windows # GT, Pred, then num_windows for SSIM maps
@@ -120,8 +120,8 @@ def visualize_slice_panel(gt_volume, pred_volume, mask, slice_indices=None, ncol
     row_labels = ["GT", "Prediction", "NCC17", "SSIM11", "Abs Error"]
 
     for col, idx in enumerate(slice_indices):
-        gt = (gt_volume[idx].astype(np.float32)) / (gt.max() + 1e-5)
-        pred = (pred_volume[idx].astype(np.float32)) / (gt.max() + 1e-5)
+        gt = gt_volume[idx].astype(np.float32)
+        pred = pred_volume[idx].astype(np.float32)
         abs_error = np.abs(gt - pred)
 
         ncc_map = np.clip(compute_local_ncc(gt, pred, window_size=17), -1, 1)
