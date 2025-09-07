@@ -11,36 +11,36 @@ Handheld OCT Angiography (OCTA) enables retinal imaging in uncooperative patient
 - Evaluation across multiple metrics targeting both pixel-level accuracy and perceptual quality
 
 ### Installation
-    ```bash
-    git clone https://github.com/MedICL-VU/VAMOS-OCTA.git
-    cd VAMOS-OCTA
-    python -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    ```
+```bash
+git clone https://github.com/MedICL-VU/VAMOS-OCTA.git
+cd VAMOS-OCTA
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
 ### Usage
 #### Prepare data:
 OCTA volumes must be 3D .tif stacks of shape (D, H, W) and type uint16. Place all volumes in a folder such as:
 ```kotlin
-data/
+data
 ├── volume1_corrupted.tif
 ├── volume1_gt.tif
 ├── volume1_mask.tif
 ├── volume2_corrupted.tif
-├── ...
+├── .
 ```
 
 #### Train and test a model:
-    ```bash
-    python main.py --data_dir data/train --epochs 100 --stride 1 --kfold
-    ```
+```bash
+python main.py --data_dir data/train --epochs 100 --stride 1 --kfold
+```
 A complete list of flags is available in main.py.
 
 #### Evaluate a previously-trained model:
-    ```bash
-    python main.py --skip_train
-    ```
+```bash
+python main.py --skip_train
+```
 
 ### Evaluation Metrics
 VAMOS-OCTA uses both pixel-wise accuracy and perceptual quality metrics:
