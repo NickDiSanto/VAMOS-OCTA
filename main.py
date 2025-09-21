@@ -73,9 +73,11 @@ def main(args, device):
         log(f"  {arg}: {value}")
 
     # Load Dataset
-    log("Loading datasets...")
+    log(f"Loading datasets from {args.data_root}")
+
     # Load and split volumes
     volume_triplets = load_volume_triplets(args.data_dir)
+
     folds = get_kfold_splits(volume_triplets, k=len(volume_triplets))
     if args.kfold:
         fold_range = range(len(folds))
@@ -147,8 +149,7 @@ def main(args, device):
                 train(model, train_loader, val_loader, criterion, best_model_path, device, args)
 
 
-            # Evaluate on Held-Out Test Volume
-            log("Evaluating on held-out test volume...")
+            # Evaluate on Held-Out Test Volume(s)
             model.load_state_dict(torch.load(best_model_path))
             
             for test_idx, (test_corrupted_path, test_gt_path, test_mask_path) in enumerate(test_vols):
@@ -182,7 +183,7 @@ def main(args, device):
                 )
 
                 os.makedirs(args.output_dir, exist_ok=True)
-                tiff.imwrite(output_path, inpainted.astype(np.float32))
+                tiff.imwrite(output_path, inpainted.astype(np.uint16))
                 log(f"Saved inpainted volume to: {output_path}")
 
                 # Normalize volumes for evaluation
@@ -194,14 +195,13 @@ def main(args, device):
                 evaluate_bscans(gt_volume, inpainted, mask)
                 evaluate_projection(gt_volume, inpainted)
 
+                if args.debug:
+                    # Use a specific corrupted slice
+                    slice_idx = np.where(mask)[0][0]
 
-    if args.debug:
-        # Use a specific corrupted slice
-        slice_idx = np.where(mask)[0][0]
-
-        visualize_ncc_slice_stacked(gt_volume, inpainted, slice_idx=slice_idx, window_sizes=[11, 17, 23])
-        visualize_ssim_slice_stacked(gt_volume, inpainted, slice_idx=slice_idx, window_sizes=[7, 11, 17])
-        visualize_slice_panel(gt_volume, inpainted, mask, slice_indices=np.where(mask)[0][:3], ncols=3)
+                    visualize_ncc_slice_stacked(gt_volume, inpainted, slice_idx=slice_idx, window_sizes=[11, 17, 23])
+                    visualize_ssim_slice_stacked(gt_volume, inpainted, slice_idx=slice_idx, window_sizes=[7, 11, 17])
+                    visualize_slice_panel(gt_volume, inpainted, mask, slice_indices=np.where(mask)[0][:3], ncols=3)
 
 
 if __name__ == "__main__":

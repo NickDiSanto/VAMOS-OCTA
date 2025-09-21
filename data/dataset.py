@@ -48,7 +48,6 @@ def get_kfold_splits(triplets, k=5, seed=42):
 
 
 class OCTAInpaintingDataset(Dataset):
-    # def __init__(self, volume_triples: list, stack_size=5, static_corruptions=False, stride=1):
     def __init__(self, volume_triples, stack_size=5, static_corruptions=False, stride=1, seed=42):
         """
         Args:
@@ -76,7 +75,6 @@ class OCTAInpaintingDataset(Dataset):
                 corrupted = tiff.imread(corrupted_path).astype(np.float32)
                 clean = tiff.imread(clean_path).astype(np.float32)
 
-                # corrupted = corrupted / (corrupted.max() + 1e-5)
                 corrupted = corrupted / (clean.max() + 1e-5)
                 clean = clean / (clean.max() + 1e-5)
                 mask = tiff.imread(mask_path)
@@ -111,22 +109,20 @@ class OCTAInpaintingDataset(Dataset):
 
         else:
             # --- Online corruption mode: build indices for on-the-fly random dropouts ---
-            self.clean_volumes = []   # list of clean volumes (np.float32 arrays)
-            self.padded_volumes = []  # list of padded clean volumes for easy indexing
-            self.indices = []         # list of (volume_index, center_slice_idx) pairs
+            self.clean_volumes = []
+            self.padded_volumes = []
+            self.indices = []  # list of (volume_index, center_slice_idx) pairs
 
             for vol_idx, (_, clean_path, _) in enumerate(volume_triples):
                 clean = tiff.imread(clean_path).astype(np.float32)
                 clean = clean / (clean.max() + 1e-5)
                 orig_len = clean.shape[0]
 
-                # Store the clean volume (for clarity) and also a padded copy for slicing
                 self.clean_volumes.append(clean)
                 padded = np.pad(clean, ((self.pad, self.pad), (0, 0), (0, 0)), mode='edge')
                 self.padded_volumes.append(padded)
 
-                # For every valid center slice (skipping edges for full context), 
-                # step by 'stride' to create overlapping stacks
+                # For every valid center slice (skipping edges for full context), step by 'stride' to create overlapping stacks
                 for idx in range(self.pad, orig_len - self.pad, self.stride):
                     self.indices.append((vol_idx, idx))
 
@@ -163,7 +159,6 @@ class OCTAInpaintingDataset(Dataset):
             # Extract the full stack around center_idx
             stack = padded_vol[center_idx: center_idx + self.stack_size].copy()  # shape: (stack_size, H, W)
             # The true target slice is the center slice (no dropout)
-            # Note: padded_vol[center_idx + self.pad] corresponds to the original clean slice
             target = padded_vol[center_idx + self.pad].copy()  # shape: (H, W)
 
             stack = stack.astype(np.float32)
@@ -176,8 +171,7 @@ class OCTAInpaintingDataset(Dataset):
             block_size = self.sample_block_size(min_size=1, max_size=6, prob=0.4)
 
 
-            # Choose a starting position for the block among the neighbors
-            # The block must fit entirely within the neighbor slices
+            # Choose a starting position for the block among the neighbors; the block must fit entirely within the neighbor slices
             neighbors = list(range(self.stack_size))
             neighbors.remove(self.pad)  # exclude center
             num_neighbors = len(neighbors)

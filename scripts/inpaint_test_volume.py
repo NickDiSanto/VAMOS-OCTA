@@ -74,4 +74,4 @@ def inpaint_volume_with_model(model, gt_volume, corrupted_volume, detect_bright_
 
             inpainted[idx] = np.clip(pred, 0, corrupted_volume.max()).astype(np.uint16)
 
-    return inpainted.astype(np.float32)  # Return as float32 for consistency with other processing steps
+    return inpainted

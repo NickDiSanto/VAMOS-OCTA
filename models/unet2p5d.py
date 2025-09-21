@@ -60,7 +60,7 @@ class OutConv(nn.Module):
 class UNet2p5D(nn.Module):
     """
     A 2.5D U-Net that processes local slice stacks with flexible conditioning that supports:
-        - Missing/corrupted slice handling
+        - Validity awareness to neighboring corrupted slices
         - Optional 3D volume-aware input encoding
 
     Args:
