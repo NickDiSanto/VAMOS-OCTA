@@ -96,7 +96,8 @@ class NonLocalBlock(nn.Module):
         self.W = nn.Conv2d(self.inter_ch, in_channels, 1)
 
         nn.init.constant_(self.W.weight, 0)
-        nn.init.constant_(self.W.bias, 0)
+        if self.W.bias is not None:
+            nn.init.constant_(self.W.bias, 0)
 
     def forward(self, x):
         B, C, H, W = x.shape

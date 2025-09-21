@@ -86,9 +86,3 @@ def compute_psnr(gt, pred, data_range=1.0):
     if mse == 0:
         return float('inf')
     return 10 * np.log10((data_range ** 2) / mse)
-
-
-def gradient_magnitude(img):
-    gx = np.diff(img, axis=1, append=img[:, -1:])
-    gy = np.diff(img, axis=0, append=img[-1:, :])
-    return np.sqrt(gx**2 + gy**2)

@@ -135,7 +135,7 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
     # except Exception:
     #     ncc3d_mean = None
 
-    log("\B-SCAN METRICS:")
+    log("\nB-SCAN METRICS:")
     log(f" - L1 Error:                {float(np.mean(l1_vals)):.4f}")
     log(f" - MeanIntensityError:      {float(np.mean(mie_vals)):.4f}")
     log(f" - PSNR:                    {np.mean(psnr_vals):.4f}")
