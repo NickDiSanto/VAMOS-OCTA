@@ -1,5 +1,8 @@
 ## VAMOS-OCTA: Vessel-Aware Multi-Axis Orthogonal Supervision for Inpainting Motion-Corrupted OCT Angiography Volumes
 
+🏆 SPIE Medical Imaging 2026 — Image Processing Best Student Paper Award  
+🎤 Selected for Oral Deep-Dive Presentation
+
 Handheld OCT Angiography (OCTA) enables retinal imaging in uncooperative patients but suffers from severe motion artifacts, including fully corrupted B-scans. **VAMOS-OCTA** is a deep learning framework for inpainting motion-corrupted B-scans in 3D OCT Angiography (OCTA) volumes, enabling volumetric reconstruction in challenging handheld imaging scenarios.
 
 <p align="center"> <img src="/figures/vamos_framework.png" alt="VAMOS Framework" width="800"/> </p>
