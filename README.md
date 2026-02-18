@@ -1,8 +1,17 @@
 ## VAMOS-OCTA: Vessel-Aware Multi-Axis Orthogonal Supervision for Inpainting Motion-Corrupted OCT Angiography Volumes
 
-Handheld OCT Angiography (OCTA) enables retinal imaging in uncooperative patients but suffers from severe motion artifacts, including fully corrupted B-scans. **VAMOS-OCTA** is a deep learning framework for inpainting motion-corrupted B-scans in 3D OCT Angiography (OCTA) volumes, enabling volumetric reconstruction in challenging handheld imaging scenarios. Our method restores missing slices while preserving vessel structures across both cross-sectional and projection views.
+🏆 SPIE Medical Imaging 2026 — Image Processing Best Student Paper Award  
+🎤 Selected for Oral Deep-Dive Presentation
 
-<p align="center"> <img src="/figures/mip_inpainting_visual.png" alt="MIP Inpainting Visual" width="800"/> </p>
+📄 [Paper (arXiv)](https://arxiv.org/pdf/2602.00995)
+
+Handheld OCT Angiography (OCTA) enables retinal imaging in uncooperative patients but suffers from severe motion artifacts, including fully corrupted B-scans. **VAMOS-OCTA** is a deep learning framework for inpainting motion-corrupted B-scans in 3D OCT Angiography (OCTA) volumes, enabling volumetric reconstruction in challenging handheld imaging scenarios.
+
+<p align="center"> <img src="/figures/vamos_framework.png" alt="VAMOS Framework" width="800"/> </p>
+
+Our method restores missing slices while preserving vessel structures across both cross-sectional and projection views.
+
+<p align="center"> <img src="/figures/mip_results_vamos.png" alt="MIP Results" width="800"/> </p>
 
 ### Key Features:
 - **2.5D U-Net** inpainting model conditioned on surrounding slices
@@ -57,6 +66,17 @@ VAMOS-OCTA uses both pixel-wise accuracy and perceptual quality metrics:
 - SSIM
 - NCC
 - PSNR
+
+#### Citation
+If you use this work, please cite:
+```
+@inproceedings{disanto2026vamos,
+  title={VAMOS-OCTA: Vessel-Aware Multi-Axis Orthogonal Supervision for Inpainting Motion-Corrupted OCT Angiography Volumes},
+  author={DiSanto, Nick and Khodapanah Aghdam, Ehsan and Liu, Han and Watson, Jacob and Tao, Yuankai K. and Li, Hao and Oguz, Ipek},
+  booktitle={SPIE Medical Imaging},
+  year={2026}
+}
+```
 
 ### Contact
 For questions or feedback, please contact [**Nick DiSanto**](mailto:nicolas.c.disanto@vanderbilt.edu)
