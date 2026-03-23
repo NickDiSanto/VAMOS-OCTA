@@ -2,8 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class DoubleConv(nn.Module):
     """(conv => ReLU => BN) * 2"""
+
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.conv = nn.Sequential(
@@ -18,20 +20,24 @@ class DoubleConv(nn.Module):
     def forward(self, x):
         return self.conv(x)
 
+
 class Down(nn.Module):
     """Downscaling with maxpool followed by double conv"""
+
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.down = nn.Sequential(
             nn.MaxPool2d(2),
-            DoubleConv(in_ch, out_ch)
+            DoubleConv(in_ch, out_ch),
         )
 
     def forward(self, x):
         return self.down(x)
 
+
 class Up(nn.Module):
     """Upscaling and concatenation with skip connection"""
+
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.up = nn.ConvTranspose2d(in_ch, in_ch // 2, kernel_size=2, stride=2)
@@ -39,54 +45,58 @@ class Up(nn.Module):
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
-        # Pad if needed (due to odd input sizes)
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
-        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
-                        diffY // 2, diffY - diffY // 2])
+        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2])
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
+
 class OutConv(nn.Module):
     """Final 1x1 convolution to get 1-channel output"""
+
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.out_conv = nn.Conv2d(in_ch, out_ch, kernel_size=1)
 
     def forward(self, x):
         return self.out_conv(x)
-    
+
 
 class Conv3DEncoder(nn.Module):
     """
-    Encodes the full input stack with 3D convolutions.
-    Projects the encoded volume down to a single 2D feature map by collapsing the slice dimension.
+    Encode the full slice stack with 3D convolutions and collapse depth to a 2D feature map.
 
     Input: (B, S, H, W)
     Output: (B, C, H, W)
     """
+
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.encoder = nn.Sequential(
             nn.Conv3d(1, 32, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv3d(32, out_channels, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
         self.project = nn.Conv3d(out_channels, out_channels, kernel_size=(in_channels, 1, 1))
 
-    def forward(self, x):  # x: (B, S, H, W)
-        x = x.unsqueeze(1)  # Add channel dim → (B, 1, S, H, W)
+    def forward(self, x):
+        x = x.unsqueeze(1)
         x = self.encoder(x)
-        x = self.project(x)  # (B, C, 1, H, W)
-        x = x.squeeze(2)  # (B, C, H, W)
+        x = self.project(x)
+        x = x.squeeze(2)
         return x
+
 
 class NonLocalBlock(nn.Module):
     """
-    Implements a non-local attention block over the 2D spatial domain.
-    Captures long-range dependencies across the entire B-scan, encouraging vessel continuity and global structure awareness.
+    Non-local attention block over the 2D spatial domain.
+
+    This block builds dense spatial attention to encourage long-range consistency
+    across the reconstructed B-scan.
     """
+
     def __init__(self, in_channels):
         super().__init__()
         self.inter_ch = in_channels // 2
@@ -100,18 +110,18 @@ class NonLocalBlock(nn.Module):
             nn.init.constant_(self.W.bias, 0)
 
     def forward(self, x):
-        B, C, H, W = x.shape
-        N = H * W
+        batch_size, _, height, width = x.shape
 
-        g_x = self.g(x).view(B, self.inter_ch, -1).permute(0, 2, 1)        # [B, N, C']
-        theta_x = self.theta(x).view(B, self.inter_ch, -1).permute(0, 2, 1)  # [B, N, C']
-        phi_x = self.phi(x).view(B, self.inter_ch, -1)                     # [B, C', N]
+        # Project to query/key/value embeddings and compute full spatial attention.
+        g_x = self.g(x).view(batch_size, self.inter_ch, -1).permute(0, 2, 1)
+        theta_x = self.theta(x).view(batch_size, self.inter_ch, -1).permute(0, 2, 1)
+        phi_x = self.phi(x).view(batch_size, self.inter_ch, -1)
 
-        f = torch.matmul(theta_x, phi_x)     # [B, N, N]
-        f_div_C = F.softmax(f, dim=-1)  # Attention weights over all spatial positions
+        attention = torch.matmul(theta_x, phi_x)
+        attention = F.softmax(attention, dim=-1)
 
-        y = torch.matmul(f_div_C, g_x)       # [B, N, C']
-        y = y.permute(0, 2, 1).contiguous().view(B, self.inter_ch, H, W)  # [B, C', H, W]
+        y = torch.matmul(attention, g_x)
+        y = y.permute(0, 2, 1).contiguous().view(batch_size, self.inter_ch, height, width)
 
         W_y = self.W(y)
         return W_y + x
@@ -119,24 +129,20 @@ class NonLocalBlock(nn.Module):
 
 class UNet3DEncoder_NonLocalBottleneck(nn.Module):
     """
-    U-Net variant with a volumetric 3D encoder and a 2D non-local bottleneck.
-
-    Key Differences from our baseline UNet2p5D:
-    - Uses a fixed 3D encoder (Conv3DEncoder).
-    - Entire 3D stack is projected to a 2D feature map before entering the decoder path.
-    - A NonLocalBlock is applied at the bottleneck to capture long-range spatial dependencies
-      and enhance contextual awareness — particularly useful for vascular continuity in projections.
+    U-Net variant with a volumetric 3D encoder and a non-local bottleneck.
 
     Args:
-        in_channels (int): Number of input slices in the stack (e.g., 5).
-        out_channels (int): Number of output channels (typically 1).
+        in_channels (int): Number of input slices in the stack.
+        out_channels (int): Number of output channels.
         features (list[int]): Feature sizes for each U-Net level.
-        dropout_rate (float): Optional dropout at bottleneck and upsampling.
+        dropout_rate (float): Optional dropout at the bottleneck.
     """
+
     def __init__(self, in_channels=5, out_channels=1, features=None, dropout_rate=0.0):
         super().__init__()
         if features is None:
             features = [64, 128, 256, 512]
+
         self.volumetric_encoder = Conv3DEncoder(in_channels, features[0])
         self.down1 = Down(features[0], features[1])
         self.down2 = Down(features[1], features[2])
