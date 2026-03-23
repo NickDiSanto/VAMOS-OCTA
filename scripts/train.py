@@ -6,12 +6,13 @@ from utils.logging import log
 
 
 def train(model, train_loader, val_loader, criterion, best_model_path, device, args):
+    """Train a model and persist the best validation checkpoint."""
     optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=1e-5)
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=3, factor=0.5)
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", patience=3, factor=0.5)
     early_stopping = EarlyStopping(patience=args.patience, min_delta=5e-5, verbose=True)
 
     log("Starting training...")
-    best_val_loss = float('inf')
+    best_val_loss = float("inf")
     best_epoch = 0
 
     epoch_iterator = tqdm(range(1, args.epochs + 1), desc="Epochs", unit="epoch")
@@ -77,8 +78,8 @@ def train_epoch(model, dataloader, optimizer, criterion, device, epoch, total_ep
 
         running_loss += loss.item() * X.size(0)
 
-        for k in log_terms:
-            log_terms[k] += terms.get(k, 0.0) * X.size(0)
+        for term_name in log_terms:
+            log_terms[term_name] += terms.get(term_name, 0.0) * X.size(0)
         count += X.size(0)
 
         progress.set_postfix(loss=f"{running_loss / count:.4f}")
@@ -121,11 +122,13 @@ def validate_epoch(model, dataloader, criterion, device, epoch, total_epochs):
 
 
 class EarlyStopping:
+    """Minimal early-stopping helper used by the training loop."""
+
     def __init__(self, patience=5, min_delta=0.0, verbose=True):
         self.patience = patience
         self.min_delta = min_delta
         self.verbose = verbose
-        self.best_loss = float('inf')
+        self.best_loss = float("inf")
         self.counter = 0
         self.should_stop = False
 

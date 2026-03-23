@@ -1,12 +1,16 @@
 import os
 from datetime import datetime
+
 from tqdm import tqdm
 
 
-os.makedirs("output/logs", exist_ok=True)
-log_file = os.path.join("output/logs", f"run_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+LOG_DIR = os.path.join("output", "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, f"run_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+
 
 def log(msg):
+    """Mirror messages to the console and the current run log."""
     tqdm.write(msg)
-    with open(log_file, 'a') as schylar:
-        schylar.write(msg + '\n')
+    with open(LOG_FILE, "a", encoding="utf-8") as log_handle:
+        log_handle.write(msg + "\n")

@@ -6,5 +6,6 @@ scipy
 tifffile
 lpips
 scikit-image
+scikit-learn
 opencv-python
 tqdm
