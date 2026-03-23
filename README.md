@@ -60,7 +60,7 @@ VAMOS-OCTA uses both pixel-wise accuracy and perceptual quality metrics:
 - Edge Preservation Ratio
 - PSNR
 
-#### Projection Metrics (MIPs)
+#### Projection (MIP) Metrics
 - L1
 - MIE (Mean Intensity Error)
 - SSIM

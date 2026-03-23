@@ -37,9 +37,14 @@ def get_kfold_splits(triplets, k=5, seed=42):
         rng = random.Random(seed + fold_idx)
         rng.shuffle(trainval_triplets)
 
-        val_split = max(1, int(0.2 * len(trainval_triplets)))
-        val_triplets = trainval_triplets[:val_split]
-        train_triplets = trainval_triplets[val_split:]
+        if len(trainval_triplets) <= 1:
+            train_triplets = trainval_triplets
+            val_triplets = []
+        else:
+            val_split = max(1, int(0.2 * len(trainval_triplets)))
+            val_split = min(val_split, len(trainval_triplets) - 1)
+            val_triplets = trainval_triplets[:val_split]
+            train_triplets = trainval_triplets[val_split:]
         test_triplets = [triplets[i] for i in test_idx]
 
         folds.append((train_triplets, val_triplets, test_triplets))

@@ -52,13 +52,12 @@ def parse_args():
     parser.add_argument('--enable_3d_input', action='store_true', help='Enable 3D input processing (otherwise, use 2D slices only)')
     parser.add_argument('--static_corruptions', action='store_true', help='Use static offline corruptions for training (default: online corruptions)')
     parser.add_argument('--stride', type=int, default=2, help='Stride for dynamic slicing (default: 1)')
-    parser.add_argument('--detect_bright_outliers', action='store_true', help='Automatically detect and inpaint bright slices')
     parser.add_argument('--kfold', action='store_true', help='Run full k-fold cross-validation')
     parser.add_argument('--fold_idx', type=int, default=1, help='If not kfold mode, which fold to run (default: 0)')
     parser.add_argument('--patience', type=int, default=10, help='Early stopping patience (default: 6 epochs)')
     parser.add_argument('--skip_train', action='store_true', help='Skip training and only run inference on the test set')
     parser.add_argument('--debug', action='store_true', help='Enable verbose debugging logs')
-    parser.add_argument('--num_runs', type=int, default=1, help='Number of times to repeat training for averaging metrics')
+    parser.add_argument('--num_runs', type=int, default=1, help='Number of times to repeat training/evaluation; outputs are kept separate when > 1')
     parser.add_argument('--output_dir', type=str, default='output/inpainted', help='Directory to save inpainted outputs')
     return parser.parse_args()
 
@@ -73,10 +72,12 @@ def main(args, device):
         log(f"  {arg}: {value}")
 
     # Load Dataset
-    log(f"Loading datasets from {args.data_root}")
+    log(f"Loading datasets from {args.data_dir}")
 
     # Load and split volumes
     volume_triplets = load_volume_triplets(args.data_dir)
+    if len(volume_triplets) < 3:
+        raise ValueError("At least 3 volume triplets are required to build train/validation/test splits.")
 
     folds = get_kfold_splits(volume_triplets, k=len(volume_triplets))
     if args.kfold:
@@ -117,6 +118,11 @@ def main(args, device):
             g = torch.Generator()
             g.manual_seed(args.seed)
 
+            if len(train_dataset) == 0:
+                raise ValueError(f"Fold {fold_idx + 1} produced an empty training dataset. Adjust the split or dataset contents.")
+            if len(val_dataset) == 0:
+                raise ValueError(f"Fold {fold_idx + 1} produced an empty validation dataset. Check the validation masks and stack size.")
+
             train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, generator=g, num_workers=0)
             val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
@@ -142,7 +148,8 @@ def main(args, device):
                 disable_wl_weighting=args.disable_wl_weighting
             )
 
-            best_model_path = f"output/best_model_fold{fold_idx + 1}.pth"
+            run_suffix = f"_run{run_idx + 1}" if args.num_runs > 1 else ""
+            best_model_path = f"output/best_model{run_suffix}_fold{fold_idx + 1}.pth"
 
             # If skip training, load the best model directly
             if not args.skip_train:
@@ -150,7 +157,8 @@ def main(args, device):
 
 
             # Evaluate on Held-Out Test Volume(s)
-            model.load_state_dict(torch.load(best_model_path))
+            state_dict = torch.load(best_model_path, map_location=device, weights_only=True)
+            model.load_state_dict(state_dict)
             
             for test_idx, (test_corrupted_path, test_gt_path, test_mask_path) in enumerate(test_vols):
                 log(f"\nEvaluating test volume {test_idx + 1}/{len(test_vols)}: {os.path.basename(test_corrupted_path)}")
@@ -171,16 +179,14 @@ def main(args, device):
                 # Single-pass inpainting
                 log("Running single-pass inpainting...")
                 inpainted = inpaint_volume_with_model(
-                    model, gt_volume, corrupted_volume, args.detect_bright_outliers, device, args.stack_size, args.debug, args
+                    model, gt_volume, corrupted_volume, device, args.stack_size, args.debug, args
                 )
                 inpainted = inpainted[0] if isinstance(inpainted, tuple) else inpainted
 
                 # Save output
                 base_name = os.path.basename(test_corrupted_path).replace("_corrupted.tif", "")
-                output_path = os.path.join(
-                    args.output_dir,
-                    f"{base_name}_VAMOS-OCTA.tif"
-                )
+                output_filename = f"{base_name}_VAMOS-OCTA{run_suffix}.tif" if run_suffix else f"{base_name}_VAMOS-OCTA.tif"
+                output_path = os.path.join(args.output_dir, output_filename)
 
                 os.makedirs(args.output_dir, exist_ok=True)
                 tiff.imwrite(output_path, inpainted.astype(np.uint16))
@@ -197,11 +203,14 @@ def main(args, device):
 
                 if args.debug:
                     # Use a specific corrupted slice
-                    slice_idx = np.where(mask)[0][0]
-
-                    visualize_ncc_slice_stacked(gt_volume, inpainted, slice_idx=slice_idx, window_sizes=[11, 17, 23])
-                    visualize_ssim_slice_stacked(gt_volume, inpainted, slice_idx=slice_idx, window_sizes=[7, 11, 17])
-                    visualize_slice_panel(gt_volume, inpainted, mask, slice_indices=np.where(mask)[0][:3], ncols=3)
+                    masked_indices = np.where(mask)[0]
+                    if len(masked_indices) == 0:
+                        log("[DEBUG] No masked slices found; skipping visualization.")
+                    else:
+                        slice_idx = masked_indices[0]
+                        visualize_ncc_slice_stacked(gt_volume, inpainted, slice_idx=slice_idx, window_sizes=[11, 17, 23])
+                        visualize_ssim_slice_stacked(gt_volume, inpainted, slice_idx=slice_idx, window_sizes=[7, 11, 17])
+                        visualize_slice_panel(gt_volume, inpainted, mask, slice_indices=masked_indices[:3], ncols=3)
 
 
 if __name__ == "__main__":

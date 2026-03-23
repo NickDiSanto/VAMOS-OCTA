@@ -1,3 +1,7 @@
+import io
+import warnings
+from contextlib import redirect_stdout
+
 import torch
 import numpy as np
 from skimage.metrics import structural_similarity as skimage_ssim
@@ -7,10 +11,49 @@ from evaluation.metrics_utils import compute_local_ncc, gradient_magnitude, lapl
 from utils.logging import log
 
 
+def _build_lpips_model():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="The parameter 'pretrained' is deprecated since 0.13.*",
+            category=UserWarning,
+        )
+        warnings.filterwarnings(
+            "ignore",
+            message="Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13.*",
+            category=UserWarning,
+        )
+        warnings.filterwarnings(
+            "ignore",
+            message="You are using `torch.load` with `weights_only=False`.*",
+            category=FutureWarning,
+        )
+        with redirect_stdout(io.StringIO()):
+            model = lpips.LPIPS(net='alex')
+
+    return model.cuda() if torch.cuda.is_available() else model
+
+
 def evaluate_bscans(gt_volume, pred_volume, mask):
     assert gt_volume.shape == pred_volume.shape, "Volume shapes must match"
 
     D, _, _ = gt_volume.shape
+    masked_indices = np.where(mask)[0]
+    if len(masked_indices) == 0:
+        log("\nB-SCAN METRICS:")
+        log(" - No masked slices found; skipping B-scan metric computation.")
+        return {
+            "L1": float('nan'),
+            "MeanIntensityError": float('nan'),
+            "PSNR": float('nan'),
+            "SSIM11": float('nan'),
+            "Global_NCC": float('nan'),
+            "Gradient_L1": float('nan'),
+            "LPIPS": float('nan'),
+            "Edge_Preservation_Ratio": float('nan'),
+            "Laplacian_Blur_Score_Diff": float('nan'),
+        }
+
     l1_vals = []
     psnr_vals = []
     mie_vals = []
@@ -23,8 +66,7 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
     edge_pres_ratio_vals = []
     laplacian_blur_scores = []
 
-    lpips_model = lpips.LPIPS(net='alex').cuda() if torch.cuda.is_available() else lpips.LPIPS(net='alex')
-
+    lpips_model = _build_lpips_model()
 
     for i in range(D):
         if not mask[i]:
@@ -32,12 +74,10 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
         g = gt_volume[i]
         p = pred_volume[i]
 
-
         # from scipy.ndimage import gaussian_filter
         # # Edge-preserving smoothing
         # # g = gaussian_filter(g, sigma=1.0)
         # p = gaussian_filter(p, sigma=1.0)
-
 
         # L1 and Mean Intensity
         l1_vals.append(np.mean(np.abs(p - g)))
