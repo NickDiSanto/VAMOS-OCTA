@@ -97,7 +97,7 @@ def _build_data_loaders(train_vols, val_vols, args, fold_idx):
         stack_size=args.stack_size,
         static_corruptions=True,
     )
-
+    # DataLoader shuffling from an explicit generator so batch order stays reproducible.
     generator = torch.Generator()
     generator.manual_seed(args.seed)
 
@@ -209,7 +209,7 @@ def main(args, device):
                 output_path = _build_output_path(test_corrupted_path, args.output_dir, run_suffix)
                 tiff.imwrite(output_path, inpainted.astype(np.uint16))
                 log(f"Saved inpainted volume to: {output_path}")
-
+                # Metrics are reported in normalized float space, while saved outputs stay uint16 on disk
                 gt_max = gt_volume.max() + 1e-5
                 gt_volume = gt_volume.astype(np.float32) / gt_max
                 inpainted = inpainted.astype(np.float32) / gt_max

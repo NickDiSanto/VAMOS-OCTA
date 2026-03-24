@@ -42,9 +42,9 @@ class VAMOS_Loss(nn.Module):
     def _build_weight_map(self, pred, target):
         if self.disable_wl_weighting:
             return torch.ones_like(pred)
-
         with torch.no_grad():
             eps = 1e-5
+            # Build the vessel-weight map without a gradient path through the weights themselves
             pred_clamped = pred.detach().clamp(min=eps)
             target_clamped = target.clamp(min=eps)
             return (

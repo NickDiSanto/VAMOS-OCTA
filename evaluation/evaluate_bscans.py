@@ -45,6 +45,7 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
     assert gt_volume.shape == pred_volume.shape, "Volume shapes must match"
 
     num_slices, _, _ = gt_volume.shape
+    # Report slice metrics only on slices marked as corrupted in the evaluation mask
     masked_indices = np.where(mask)[0]
     if len(masked_indices) == 0:
         log("\nB-SCAN METRICS:")
@@ -81,9 +82,11 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
         g = gt_volume[i]
         p = pred_volume[i]
 
+        # L1 and Mean Intensity Error
         l1_vals.append(np.mean(np.abs(p - g)))
         mie_vals.append(np.abs(p.mean() - g.mean()))
 
+        # PSNR
         mse = np.mean((p - g) ** 2)
         if mse == 0:
             psnr = float("inf")
@@ -91,6 +94,7 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
             psnr = 10 * np.log10(1.0 / mse)
         psnr_vals.append(psnr)
 
+        # SSIM at multiple windows
         for w in ssim_vals.keys():
             try:
                 ssim_val = skimage_ssim(g, p, data_range=1.0, win_size=w)
@@ -98,6 +102,7 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
                 ssim_val = float("nan")
             ssim_vals[w].append(ssim_val)
 
+        # Global NCC (slice-wide Pearson)
         try:
             g_zero = g - g.mean()
             p_zero = p - p.mean()
@@ -110,6 +115,7 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
             ncc_val = float("nan")
         global_ncc_vals.append(ncc_val)
 
+        # Windowed NCC
         for w in windowed_ncc_vals.keys():
             try:
                 local_ncc = compute_local_ncc(g, p, window_size=w)
@@ -121,10 +127,12 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
             except Exception:
                 windowed_ncc_vals[w].append(float("nan"))
 
+        # Gradient L1
         g_grad = gradient_magnitude(g)
         p_grad = gradient_magnitude(p)
         gradient_l1_vals.append(np.mean(np.abs(g_grad - p_grad)))
 
+        # LPIPS
         try:
             g_lpips = to_lpips_tensor(g)
             p_lpips = to_lpips_tensor(p)
@@ -143,11 +151,13 @@ def evaluate_bscans(gt_volume, pred_volume, mask):
 
         lpips_vals.append(lpips_val)
 
+        # Edge Preservation Ratio
         gt_edge = edge_strength(g)
         pred_edge = edge_strength(p)
         edge_ratio = pred_edge / (gt_edge + 1e-8)
         edge_pres_ratio_vals.append(edge_ratio)
 
+        # Laplacian Blur Score (sharpness)
         blur_score = laplacian_blur_score(p)
         blur_score_gt = laplacian_blur_score(g)
         laplacian_blur_scores.append(abs(blur_score - blur_score_gt))

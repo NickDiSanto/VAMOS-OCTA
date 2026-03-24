@@ -22,6 +22,8 @@ def inpaint_volume_with_model(model, gt_volume, corrupted_volume, device="cuda",
     pad = stack_size // 2
 
     log("[DEBUG] Only inpainting empty slices...")
+    # Test-time targets are inferred from empty slices in the corrupted volume itself,
+    # rather than from the ground-truth mask used only for evaluation.
     inpaint_mask = (corrupted_volume.mean(axis=(1, 2)) == 0).astype(np.uint8)
 
     if debug:
