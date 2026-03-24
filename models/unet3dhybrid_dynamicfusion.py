@@ -44,6 +44,7 @@ class Up(nn.Module):
         self.conv = DoubleConv(x2_in_ch + out_ch, out_ch)
 
     def forward(self, x1, x2):
+        # Pad if needed
         x1 = self.up(x1)
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]

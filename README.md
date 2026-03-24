@@ -2,8 +2,7 @@
 
 🏆 SPIE Medical Imaging 2026 — Image Processing Best Student Paper Award  
 🎤 Selected for Oral Deep-Dive Presentation
-
-Paper: [arXiv:2602.00995](https://arxiv.org/pdf/2602.00995)
+📄 Paper: [arXiv:2602.00995](https://arxiv.org/pdf/2602.00995)
 
 Handheld OCT Angiography (OCTA) enables retinal imaging in uncooperative patients but is highly susceptible to motion artifacts, including fully corrupted B-scans. **VAMOS-OCTA** is a deep learning framework for inpainting motion-corrupted B-scans in 3D OCTA volumes while preserving vessel structure in both cross-sectional and projection views.
 
@@ -17,9 +16,9 @@ Handheld OCT Angiography (OCTA) enables retinal imaging in uncooperative patient
 
 ## Highlights
 
-- 2.5D U-Net inpainting model conditioned on neighboring B-scans
-- VAMOS loss combining vessel-weighted MSE with orthogonal projection supervision
-- Online synthetic corruption during training with support for static corrupted test and validation volumes
+- **2.5D U-Net** inpainting model conditioned on neighboring B-scans
+- **VAMOS loss** combining vessel-weighted MSE with orthogonal projection supervision
+- **Dynamic synthetic corruption** during training with support for static corrupted test and validation volumes
 - End-to-end pipeline for training, k-fold evaluation, inference, and metric reporting
 
 ## Installation
@@ -94,16 +93,6 @@ The public pipeline entry point is `main.py`, which performs the following steps
 
 Additional model files in `models/` are retained as related research variants, but the public training and evaluation entry point currently instantiates `UNet2p5D`.
 
-## Reproducibility Notes
-
-- Global seeding is applied to Python, NumPy, and PyTorch in `main.py`
-- cuDNN is configured for deterministic execution (`deterministic=True`, `benchmark=False`)
-- Training, validation, and metric computations operate on float32 volumes normalized to `[0, 1]`
-- Saved inpainted volumes are written back to disk as `uint16`
-- K-fold splitting is deterministic for a fixed seed and dataset contents
-
-These notes describe the released code path here; the repository behavior is the source of truth for all experiments.
-
 ## Evaluation Metrics
 
 ### B-scan metrics
@@ -118,7 +107,7 @@ These notes describe the released code path here; the repository behavior is the
 - Edge Preservation Ratio
 - Laplacian Blur Score Difference
 
-### Projection metrics
+### Projection (MIP) metrics
 
 - L1
 - Mean Intensity Error
@@ -127,17 +116,15 @@ These notes describe the released code path here; the repository behavior is the
 - Global NCC
 - Gradient L1
 
-## Repository Layout
+## Reproducibility Notes
 
-```text
-main.py                        Pipeline entry point
-data/dataset.py                Volume discovery, split construction, dataset logic
-models/unet2p5d.py             Primary 2.5D U-Net used by the release pipeline
-scripts/train.py               Training loop and early stopping
-scripts/inpaint_test_volume.py Slice-wise test-time inference
-evaluation/                    B-scan and projection metrics
-utils/                         Logging and visualization helpers
-```
+- Global seeding is applied to Python, NumPy, and PyTorch in `main.py`
+- cuDNN is configured for deterministic execution (`deterministic=True`, `benchmark=False`)
+- Training, validation, and metric computations operate on float32 volumes normalized to `[0, 1]`
+- Saved inpainted volumes are written back to disk as `uint16`
+- K-fold splitting is deterministic for a fixed seed and dataset contents
+
+These notes describe the released code path here; the repository behavior is the source of truth for all experiments.
 
 ## Citation
 

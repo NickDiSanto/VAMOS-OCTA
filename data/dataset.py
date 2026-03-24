@@ -85,9 +85,11 @@ class OCTAInpaintingDataset(Dataset):
         self.rng_py = random.Random(seed)
 
         if static_corruptions:
+            # --- Static mode: use pre-generated corrupted volumes and masks ---
             self.data = []
             self._build_static_samples(volume_triples)
         else:
+            # --- Online corruption mode: build indices for on-the-fly random dropouts ---
             self.clean_volumes = []
             self.padded_volumes = []
             self.indices = []
@@ -109,12 +111,15 @@ class OCTAInpaintingDataset(Dataset):
             assert corrupted.shape[0] == mask.shape[0], "Number of slices in volume and mask must match"
             mask = normalize_slice_mask(mask)
 
+            # Pad the corrupted volume on the slice dimension for context at edges
             padded = np.pad(corrupted, ((self.pad, self.pad), (0, 0), (0, 0)), mode="edge")
 
+            # Static masks mark the slice centers that should be reconstructed and evaluated
             for idx in np.where(mask == 1)[0]:
                 if idx < self.pad or idx >= corrupted.shape[0] - self.pad:
                     continue
 
+                # Extract stack around the target slice (centered)
                 stack = padded[idx: idx + self.stack_size]
                 target = clean[idx]
                 self.data.append((stack, target))
@@ -148,10 +153,12 @@ class OCTAInpaintingDataset(Dataset):
 
     def __getitem__(self, idx):
         if self.static_corruptions:
+            # --- Static corruption mode: return precomputed (stack, target) pair ---
             stack, target = self.data[idx]
             stack = torch.from_numpy(stack).float()
             target = torch.from_numpy(target).float().unsqueeze(0)
         else:
+            # --- Online corruption mode: generate stack and apply random dropouts ---
             vol_idx, center_idx = self.indices[idx]
             padded_vol = self.padded_volumes[vol_idx]
 
@@ -160,9 +167,9 @@ class OCTAInpaintingDataset(Dataset):
 
             stack = stack.astype(np.float32)
             target = target.astype(np.float32)
-
+            # Always blank the center slice so the model never sees the training target directly
             stack[self.pad] = 0.0
-
+            # Neighboring dropouts are sampled as contiguous blocks to mirror the offline corruption pattern
             block_size = self.sample_block_size(min_size=1, max_size=6, prob=0.4)
 
             neighbors = list(range(self.stack_size))
